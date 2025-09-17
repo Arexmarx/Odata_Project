@@ -1,4 +1,8 @@
 
+using Microsoft.AspNetCore.OData;
+using Microsoft.EntityFrameworkCore;
+using OData_Chap04.Context;
+
 namespace OData_Chap04
 {
     public class Program
@@ -9,10 +13,13 @@ namespace OData_Chap04
 
             // Add services to the container.
 
-            builder.Services.AddControllers();
+            builder.Services.AddControllers().AddOData();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
+
+            builder.Services.AddDbContext<OdataContext>(options =>
+                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             var app = builder.Build();
 
