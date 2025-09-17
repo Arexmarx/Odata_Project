@@ -46,4 +46,6 @@ public partial class DailyReport
     public string? PeopleTested { get; set; }
 
     public string? MortalityRate { get; set; }
+
+    public int Id { get; set; }
 }

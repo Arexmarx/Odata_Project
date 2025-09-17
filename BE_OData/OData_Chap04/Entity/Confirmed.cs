@@ -838,4 +838,6 @@ public partial class Confirmed
     public string? _3823 { get; set; }
 
     public string? _3923 { get; set; }
+
+    public int Id { get; set; }
 }

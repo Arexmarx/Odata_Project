@@ -5,13 +5,13 @@ using OData_Chap04.Entity;
 
 namespace OData_Chap04.Context;
 
-public partial class OdataContext : DbContext
+public partial class ODataContext : DbContext
 {
-    public OdataContext()
+    public ODataContext()
     {
     }
 
-    public OdataContext(DbContextOptions<OdataContext> options)
+    public ODataContext(DbContextOptions<ODataContext> options)
         : base(options)
     {
     }
@@ -24,13 +24,17 @@ public partial class OdataContext : DbContext
 
     public virtual DbSet<Required> Requireds { get; set; }
 
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
+        => optionsBuilder.UseSqlServer("Server=localhost;Database=AssChap4;User Id=sa;Password=12345;TrustServerCertificate=True;MultipleActiveResultSets=True;");
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Confirmed>(entity =>
         {
-            entity
-                .HasNoKey()
-                .ToTable("confirmed");
+            entity.HasKey(e => e.Id).HasName("PK__confirme__3214EC0764AB39FA");
+
+            entity.ToTable("confirmed");
 
             entity.Property(e => e.CountryRegion)
                 .HasMaxLength(512)
@@ -1694,9 +1698,9 @@ public partial class OdataContext : DbContext
 
         modelBuilder.Entity<DailyReport>(entity =>
         {
-            entity
-                .HasNoKey()
-                .ToTable("daily_reports");
+            entity.HasKey(e => e.Id).HasName("PK__daily_re__3214EC07A09D658C");
+
+            entity.ToTable("daily_reports");
 
             entity.Property(e => e.Active).HasMaxLength(512);
             entity.Property(e => e.CaseFatalityRatio).HasColumnName("Case_Fatality_Ratio");
@@ -1736,9 +1740,9 @@ public partial class OdataContext : DbContext
 
         modelBuilder.Entity<Death>(entity =>
         {
-            entity
-                .HasNoKey()
-                .ToTable("deaths");
+            entity.HasKey(e => e.Id).HasName("PK__deaths__3214EC0787038967");
+
+            entity.ToTable("deaths");
 
             entity.Property(e => e.CountryRegion)
                 .HasMaxLength(512)
@@ -3402,9 +3406,9 @@ public partial class OdataContext : DbContext
 
         modelBuilder.Entity<Required>(entity =>
         {
-            entity
-                .HasNoKey()
-                .ToTable("required");
+            entity.HasKey(e => e.Id).HasName("PK__required__3214EC0708118480");
+
+            entity.ToTable("required");
 
             entity.Property(e => e.CountryRegion)
                 .HasMaxLength(512)
