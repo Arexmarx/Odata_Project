@@ -12,7 +12,7 @@ namespace OData_Chap04.Configuration
             builder.EntitySet<Confirmed>("Confirms");
             builder.EntitySet<DailyReport>("DailyReports");
             builder.EntitySet<Death>("Deaths");
-            builder.EntitySet<Required>("Requireds");
+            builder.EntitySet<Recovered>("Recovereds");
             return builder.GetEdmModel();
         }
     }

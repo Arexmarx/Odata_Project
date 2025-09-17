@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace OData_Chap04.Entity;
 
-public partial class Confirmed
+public partial class Recovered
 {
     public string? ProvinceState { get; set; }
 
