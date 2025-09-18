@@ -31,14 +31,36 @@ const CovidMapTabs: React.FC = () => {
           daily_reports: "",
         };
 
+        // gọi API
         const results = await Promise.all(
           Object.entries(endpoints).map(async ([key, url]) => {
             if (!url) return [key, []] as [string, RecordAgg[]];
             const res = await axios.get(url);
+
             const data: RecordAgg[] = Array.isArray(res.data) ? res.data : [];
+
             return [key, data] as [string, RecordAgg[]];
           })
         );
+
+        const confirmed = results.find(([k]) => k === "confirmed")?.[1] || [];
+        const deaths = results.find(([k]) => k === "deaths")?.[1] || [];
+
+        // tính Active = Confirmed - Deaths
+        const active: RecordAgg[] = confirmed.map((c) => {
+          const d = deaths.find((x) => x.CountryRegion === c.CountryRegion);
+
+          const confirmedVal = c.LastValue ?? 0;
+          const deathsVal = d?.LastValue ?? 0;
+
+          return {
+            CountryRegion: c.CountryRegion,
+            LastDate: c.LastDate,
+            LastValue: confirmedVal - deathsVal,
+          };
+        });
+
+        results.push(["active", active]);
 
         setAllData(Object.fromEntries(results));
         setLoading(false);
