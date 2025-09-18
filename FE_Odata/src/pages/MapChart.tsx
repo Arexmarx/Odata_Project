@@ -4,7 +4,7 @@ import "./MapChart.css";
 
 export interface RecordAgg {
   CountryRegion: string;
-  Date: string;
+  LastDate: string;
   LastValue: number;
 }
 
@@ -35,17 +35,14 @@ const MapChart: React.FC<MapChartProps> = ({ data, title, colorbarTitle }) => {
               colorscale: "Blues_r",
               text: data.map(
                 (r) =>
-                  `${r.CountryRegion}<br>Cases: ${r.LastValue}<br>Date: ${r.Date}`
+                  `${r.CountryRegion}<br>Cases: ${r.LastValue}<br>Date: ${r.LastDate}`
               ),
               marker: { line: { color: "rgb(180,180,180)" } },
               colorbar: { title: colorbarTitle },
               hoverinfo: "text",
             },
           ]}
-          layout={{
-            autosize: true,
-            margin: { l: 0, r: 0, t: 0, b: 0 },
-          }}
+          layout={{ autosize: true }}
           style={{ width: "100%", height: "100%" }}
           useResizeHandler={true}
         />

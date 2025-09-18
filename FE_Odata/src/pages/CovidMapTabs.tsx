@@ -3,7 +3,12 @@ import axios from "axios";
 import MapChart, { type RecordAgg } from "./MapChart";
 import "./CovidMapTabs.css";
 
-type DataType = "confirmed" | "deaths" | "recovered" | "daily_reports";
+type DataType =
+  | "confirmed"
+  | "deaths"
+  | "recovered"
+  | "active"
+  | "daily_reports";
 
 const CovidMapTabs: React.FC = () => {
   const [type, setType] = useState<DataType>("confirmed");
@@ -11,6 +16,7 @@ const CovidMapTabs: React.FC = () => {
     confirmed: [],
     deaths: [],
     recovered: [],
+    active: [],
     daily_reports: [],
   });
   const [loading, setLoading] = useState(true);
@@ -37,6 +43,7 @@ const CovidMapTabs: React.FC = () => {
           confirmed: `http://localhost:5230/odata/Confirms?$apply=filter(Date eq ${lastDateConfirms})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`,
           deaths: `http://localhost:5230/odata/Deaths?$apply=filter(Date eq ${lastDateDeaths})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`,
           recovered: `http://localhost:5230/odata/Recovereds?$apply=filter(Date eq ${lastDateRecovereds})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`,
+          active: "", // sẽ tính tay
           daily_reports: "",
         };
 
@@ -44,7 +51,9 @@ const CovidMapTabs: React.FC = () => {
           Object.entries(endpoints).map(async ([key, url]) => {
             if (!url) return [key, []] as [string, RecordAgg[]];
             const res = await axios.get(url);
-            const data: RecordAgg[] = Array.isArray(res.data) ? res.data : [];
+            const data: RecordAgg[] = Array.isArray(res.data.value)
+              ? res.data.value
+              : res.data;
             return [key, data] as [string, RecordAgg[]];
           })
         );
@@ -52,12 +61,11 @@ const CovidMapTabs: React.FC = () => {
         const confirmed = results.find(([k]) => k === "confirmed")?.[1] || [];
         const deaths = results.find(([k]) => k === "deaths")?.[1] || [];
 
-        // Active = Confirmed - Deaths
+        // ✅ Active = Confirmed - Deaths
         const active: RecordAgg[] = confirmed.map((c) => {
           const d = deaths.find((x) => x.CountryRegion === c.CountryRegion);
           const confirmedVal = c.LastValue ?? 0;
           const deathsVal = d?.LastValue ?? 0;
-
           return {
             CountryRegion: c.CountryRegion,
             LastDate: c.LastDate,
@@ -112,6 +120,14 @@ const CovidMapTabs: React.FC = () => {
             colorbarTitle="Recovered"
           />
         );
+      case "active":
+        return (
+          <MapChart
+            data={allData.active}
+            title="COVID-19 Active Cases"
+            colorbarTitle="Active"
+          />
+        );
     }
   };
 
@@ -119,6 +135,7 @@ const CovidMapTabs: React.FC = () => {
     confirmed: { label: "Confirmed", emoji: "🦠" },
     deaths: { label: "Deaths", emoji: "⚰️" },
     recovered: { label: "Recovered", emoji: "💚" },
+    active: { label: "Active", emoji: "🔵" },
     daily_reports: { label: "Daily Reports", emoji: "📊" },
   };
 
