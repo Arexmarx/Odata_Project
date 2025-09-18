@@ -12,15 +12,16 @@ interface CountryData {
 
 interface TreeMapNode {
   name: string;
-  value: number;
-  percentage: number;
-  fill: string;
+  value?: number;
+  percentage?: number;
+  fill?: string;
+  children?: TreeMapNode[];
 }
 
 const CovidDashboard = () => {
   const [activeTab, setActiveTab] = useState("Confirmed");
   const [worldData, setWorldData] = useState<CountryData[]>([]);
-  const [treemapData, setTreemapData] = useState<TreeMapNode[]>([]);
+  const [treemapData, setTreemapData] = useState<TreeMapNode | null>(null);
   const [loading, setLoading] = useState(true);
 
   const colors = [
@@ -32,6 +33,10 @@ const CovidDashboard = () => {
     "#f472b6",
     "#22d3ee",
     "#84cc16",
+    "#6366f1",
+    "#ec4899",
+    "#14b8a6",
+    "#f59e0b",
   ];
 
   // Fetch OData
@@ -41,7 +46,7 @@ const CovidDashboard = () => {
 
       const apiMap: Record<string, string> = {
         Confirmed: "Confirms",
-        Active: "Recovereds",
+        Active: "Actives",
         Recovered: "Recovereds",
         Deaths: "Deaths",
         "Daily Increase": "DailyReports",
@@ -59,41 +64,48 @@ const CovidDashboard = () => {
 
       const res = await axios.get(url);
       const json = res.data;
-      console.log("Raw OData Response:", json); // 👈 debug response
+      const rawData = json.value || json;
 
-      const arr: CountryData[] = (json.value ?? []).map(
-        (item: any, i: number) => ({
-          country: item.CountryRegion ?? "Unknown",
-          value:
-            activeTab === "Daily Increase"
-              ? item.LastConfirmed ?? 0
-              : item.LastValue ?? 0,
-          percentage: 0,
-          color: colors[i % colors.length],
-        })
-      );
+      const arr: CountryData[] = rawData.map((item: any, i: number) => ({
+        country: item.CountryRegion || "Unknown",
+        value:
+          activeTab === "Daily Increase"
+            ? item.LastConfirmed || 0
+            : item.LastValue || 0,
+        percentage: 0,
+        color: colors[i % colors.length],
+      }));
 
-      const total = arr.reduce((sum, d) => sum + (d.value || 0), 0);
+      // Lọc bỏ value <= 0
+      const filteredArr = arr.filter((item) => item.value > 0);
 
-      arr.forEach((d) => {
+      // Tổng toàn cầu
+      const total = filteredArr.reduce((sum, d) => sum + d.value, 0);
+
+      // Tính %
+      filteredArr.forEach((d) => {
         d.percentage = total > 0 ? +((d.value / total) * 100).toFixed(1) : 0;
       });
 
-      arr.sort((a, b) => b.value - a.value);
+      // Sort giảm dần
+      filteredArr.sort((a, b) => b.value - a.value);
 
-      const tmap: TreeMapNode[] = arr.map((d) => ({
-        name: d.country,
-        value: d.value,
-        percentage: d.percentage,
-        fill: d.color,
-      }));
+      const root: TreeMapNode = {
+        name: "root",
+        children: filteredArr.map((d) => ({
+          name: d.country,
+          value: d.value,
+          percentage: d.percentage,
+          fill: d.color,
+        })),
+      };
 
-      setWorldData(arr);
-      setTreemapData(tmap);
+      setTreemapData(root);
+      setWorldData(filteredArr);
     } catch (error) {
       console.error("Error fetching OData:", error);
       setWorldData([]);
-      setTreemapData([]);
+      setTreemapData(null);
     } finally {
       setLoading(false);
     }
@@ -114,7 +126,7 @@ const CovidDashboard = () => {
 
   const CustomTreemapContent = (props: any) => {
     const { x, y, width, height, name, value, percentage, fill } = props;
-    if (width < 50 || height < 30) return null;
+
     return (
       <g>
         <rect
@@ -124,25 +136,27 @@ const CovidDashboard = () => {
           height={height}
           fill={fill}
           stroke="#fff"
+          strokeWidth={1}
         />
-        {width > 100 && height > 60 && (
+
+        {width > 80 && height > 50 && (
           <>
             <text
               x={x + width / 2}
               y={y + height / 2 - 10}
               textAnchor="middle"
               fill="white"
-              fontSize={12}
+              fontSize={Math.min(12, width / 8)}
               fontWeight="bold"
             >
-              {name}
+              {name.length > 15 ? name.substring(0, 12) + "..." : name}
             </text>
             <text
               x={x + width / 2}
               y={y + height / 2 + 5}
               textAnchor="middle"
               fill="white"
-              fontSize={11}
+              fontSize={Math.min(11, width / 9)}
             >
               {formatNumber(value)}
             </text>
@@ -151,12 +165,71 @@ const CovidDashboard = () => {
               y={y + height / 2 + 20}
               textAnchor="middle"
               fill="white"
-              fontSize={10}
+              fontSize={Math.min(10, width / 10)}
             >
               {percentage}%
             </text>
           </>
         )}
+        {width > 40 && height > 25 && width <= 80 && height <= 110 && (
+          <>
+            <text
+              x={x + width / 2}
+              y={y + height / 2 - 10}
+              textAnchor="middle"
+              fill="white"
+              fontSize={Math.min(12, width / 8)}
+              fontWeight="bold"
+            >
+              {name.length > 15 ? name.substring(0, 12) + "..." : name}
+            </text>
+            <text
+              x={x + width / 2}
+              y={y + height / 2}
+              textAnchor="middle"
+              fill="white"
+              fontSize={Math.min(10, width / 6)}
+              fontWeight="bold"
+            >
+              {formatNumber(value)}
+            </text>
+            <text
+              x={x + width / 2}
+              y={y + height / 2 + 20}
+              textAnchor="middle"
+              fill="white"
+              fontSize={Math.min(10, width / 10)}
+            >
+              {percentage}%
+            </text>
+          </>
+        )}
+
+        {width > 40 && height > 25 && width <= 80 && height <= 50 && (
+          <text
+            x={x + width / 2}
+            y={y + height / 2}
+            textAnchor="middle"
+            fill="white"
+            fontSize={Math.min(10, width / 6)}
+            fontWeight="bold"
+          >
+            {formatNumber(value)}
+          </text>
+        )}
+
+        {width <= 40 || height <= 25 ? (
+          <text
+            x={x + width / 2}
+            y={y + height / 2}
+            textAnchor="middle"
+            fill="white"
+            fontSize={7}
+            fontWeight="bold"
+          >
+            {formatNumber(value)}
+          </text>
+        ) : null}
       </g>
     );
   };
@@ -178,24 +251,26 @@ const CovidDashboard = () => {
 
       {/* Treemap */}
       <div className="card">
-        <h3>Treemap of Countries</h3>
+        <h3>Treemap of Countries - {activeTab}</h3>
         <p className="subtitle">
-          The Treemap shows the number of cases in different countries and their
-          percentage worldwide
+          The Treemap shows the number of {activeTab.toLowerCase()} cases in
+          different countries and their percentage worldwide
         </p>
 
         <div className="treemap-container">
           {loading ? (
             <div className="loading">Loading...</div>
-          ) : (
+          ) : treemapData ? (
             <ResponsiveContainer width="100%" height="100%">
               <Treemap
-                data={treemapData}
+                data={treemapData.children}
                 dataKey="value"
-                strokeWidth={2}
+                strokeWidth={1}
                 content={<CustomTreemapContent />}
               />
             </ResponsiveContainer>
+          ) : (
+            <div className="loading">No data available</div>
           )}
         </div>
       </div>
@@ -213,6 +288,13 @@ const CovidDashboard = () => {
           </div>
         ))}
       </div>
+
+      {!loading && (
+        <div style={{ marginTop: "20px", fontSize: "12px", color: "#666" }}>
+          Total countries: {worldData.length} | Total cases:{" "}
+          {worldData.reduce((sum, d) => sum + d.value, 0).toLocaleString()}
+        </div>
+      )}
     </div>
   );
 };
