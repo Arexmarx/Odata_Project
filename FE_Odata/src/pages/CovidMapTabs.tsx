@@ -18,19 +18,12 @@ const CovidMapTabs: React.FC = () => {
     const fetchAllData = async () => {
       try {
         setLoading(true);
-
-        // 🔹 Bước 1: Lấy ngày mới nhất từ Confirms
         const lastDateRes = await axios.get(
           "http://localhost:5230/odata/Confirms?$apply=aggregate(Date with max as LastDate)"
         );
-
-        // OData thường trả về trong dạng { value: [{ LastDate: "2023-03-09" }] }
         const lastDate = lastDateRes.data?.[0]?.LastDate;
-        if (!lastDate) {
-          throw new Error("Không lấy được LastDate");
-        }
-        console.log("lastDate", lastDate);
-        // 🔹 Bước 2: Tạo endpoints có filter theo lastDate
+        if (!lastDate) throw new Error("Không lấy được LastDate");
+
         const endpoints: Record<DataType, string> = {
           confirmed: `http://localhost:5230/odata/Confirms?$apply=filter(Date eq ${lastDate})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`,
           deaths: `http://localhost:5230/odata/Deaths?$apply=filter(Date eq ${lastDate})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`,
@@ -38,7 +31,6 @@ const CovidMapTabs: React.FC = () => {
           daily_reports: "",
         };
 
-        // 🔹 Bước 3: Gọi song song các API kia
         const results = await Promise.all(
           Object.entries(endpoints).map(async ([key, url]) => {
             if (!url) return [key, []] as [string, RecordAgg[]];
@@ -59,7 +51,12 @@ const CovidMapTabs: React.FC = () => {
     fetchAllData();
   }, []);
 
-  if (loading) return <div className="text-center p-6">Loading data...</div>;
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-64 text-blue-600 font-semibold animate-pulse">
+        Loading data...
+      </div>
+    );
 
   const renderMap = () => {
     switch (type) {
@@ -90,30 +87,43 @@ const CovidMapTabs: React.FC = () => {
     }
   };
 
+  const tabConfig: Record<DataType, { label: string; emoji: string }> = {
+    confirmed: { label: "Confirmed", emoji: "🦠" },
+    deaths: { label: "Deaths", emoji: "⚰️" },
+    recovered: { label: "Recovered", emoji: "💚" },
+    daily_reports: { label: "Daily Reports", emoji: "📊" },
+  };
+
   return (
-    <div className="w-full max-w-6xl mx-auto p-6 bg-white shadow-lg rounded-xl">
-      <div className="flex justify-center gap-4 mb-4">
-        {(
-          ["confirmed", "deaths", "recovered", "daily_reports"] as DataType[]
-        ).map((t) => (
+    <>
+      {/* Header */}
+      <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">
+        🌍 COVID-19 Global Overview
+      </h2>
+
+      {/* Tabs */}
+      <div className="flex justify-center flex-wrap gap-3 mb-6">
+        {(Object.keys(tabConfig) as DataType[]).map((t) => (
           <button
             key={t}
-            className={`px-4 py-2 rounded ${
+            className={`flex items-center gap-2 px-5 py-2 rounded-full font-medium transition-all ${
               type === t
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 text-gray-800"
+                ? "bg-blue-600 text-white shadow-md scale-105"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
             onClick={() => setType(t)}
           >
-            {t.replace("_", " ").toUpperCase()}
+            <span>{tabConfig[t].emoji}</span>
+            {tabConfig[t].label}
           </button>
         ))}
       </div>
 
-      <div className="rounded-lg overflow-hidden border border-gray-200">
+      {/* Map */}
+      <div className="rounded-xl overflow-hidden border border-gray-200 shadow-lg bg-white">
         {renderMap()}
       </div>
-    </div>
+    </>
   );
 };
 

@@ -19,7 +19,7 @@ const MapChart: React.FC<MapChartProps> = ({ data, title, colorbarTitle }) => {
   const zmax = Math.max(...values, 0);
   console.log("check", { data, title, colorbarTitle });
   return (
-    <div>
+    <>
       <h2 className="text-xl font-bold text-center mb-2">{title}</h2>
       <Plot
         data={[
@@ -32,7 +32,8 @@ const MapChart: React.FC<MapChartProps> = ({ data, title, colorbarTitle }) => {
             zmax,
             colorscale: "Blues_r",
             text: data.map(
-              (r) => `${r.CountryRegion}<br>Cases: ${r.LastValue}`
+              (r) =>
+                `${r.CountryRegion}<br>Cases: ${r.LastValue}<br>Date: ${r.LastDate}`
             ),
             marker: { line: { color: "rgb(180,180,180)" } },
             colorbar: { title: colorbarTitle },
@@ -41,7 +42,7 @@ const MapChart: React.FC<MapChartProps> = ({ data, title, colorbarTitle }) => {
         ]}
         layout={{ autosize: true }}
       />
-    </div>
+    </>
   );
 };
 
