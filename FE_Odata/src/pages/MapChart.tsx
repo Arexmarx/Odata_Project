@@ -32,8 +32,7 @@ const MapChart: React.FC<MapChartProps> = ({ data, title, colorbarTitle }) => {
             zmax,
             colorscale: "Blues_r",
             text: data.map(
-              (r) =>
-                `${r.CountryRegion}<br>Cases: ${r.LastValue}<br>Date: ${r.LastDate}`
+              (r) => `${r.CountryRegion}<br>Cases: ${r.LastValue}`
             ),
             marker: { line: { color: "rgb(180,180,180)" } },
             colorbar: { title: colorbarTitle },

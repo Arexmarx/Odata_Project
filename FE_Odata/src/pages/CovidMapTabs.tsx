@@ -18,20 +18,31 @@ const CovidMapTabs: React.FC = () => {
     const fetchAllData = async () => {
       try {
         setLoading(true);
+
+        // 🔹 Bước 1: Lấy ngày mới nhất từ Confirms
+        const lastDateRes = await axios.get(
+          "http://localhost:5230/odata/Confirms?$apply=aggregate(Date with max as LastDate)"
+        );
+
+        // OData thường trả về trong dạng { value: [{ LastDate: "2023-03-09" }] }
+        const lastDate = lastDateRes.data?.[0]?.LastDate;
+        if (!lastDate) {
+          throw new Error("Không lấy được LastDate");
+        }
+        console.log("lastDate", lastDate);
+        // 🔹 Bước 2: Tạo endpoints có filter theo lastDate
         const endpoints: Record<DataType, string> = {
-          confirmed:
-            "http://localhost:5230/odata/Confirms?$apply=groupby((CountryRegion),aggregate(Date with max as LastDate,Value with max as LastValue))",
-          deaths:
-            "http://localhost:5230/odata/Deaths?$apply=groupby((CountryRegion),aggregate(Date with max as LastDate,Value with max as LastValue))",
-          recovered:
-            "http://localhost:5230/odata/Recovereds?$apply=groupby((CountryRegion),aggregate(Date with max as LastDate,Value with max as LastValue))",
+          confirmed: `http://localhost:5230/odata/Confirms?$apply=filter(Date eq ${lastDate})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`,
+          deaths: `http://localhost:5230/odata/Deaths?$apply=filter(Date eq ${lastDate})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`,
+          recovered: `http://localhost:5230/odata/Recovereds?$apply=filter(Date eq ${lastDate})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`,
           daily_reports: "",
         };
 
+        // 🔹 Bước 3: Gọi song song các API kia
         const results = await Promise.all(
           Object.entries(endpoints).map(async ([key, url]) => {
+            if (!url) return [key, []] as [string, RecordAgg[]];
             const res = await axios.get(url);
-            console.log("check res", res);
             const data: RecordAgg[] = Array.isArray(res.data) ? res.data : [];
             return [key, data] as [string, RecordAgg[]];
           })
