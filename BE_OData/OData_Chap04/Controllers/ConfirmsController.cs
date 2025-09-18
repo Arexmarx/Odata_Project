@@ -1,12 +1,12 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OData.Query;
-using Microsoft.AspNetCore.OData.Routing.Controllers; // 🔹 Lưu ý import ODataController
+using Microsoft.AspNetCore.OData.Routing.Controllers; 
 using OData_Chap04.Context;
 
 namespace OData_Chap04.Controllers
 {
-    [Route("odata/[controller]")] // 🔹 Chú ý route OData chuẩn
-    public class ConfirmsController : ODataController
+    [Route("api/[controller]")] 
+    public class ConfirmsController : ControllerBase
     {
         private readonly ODataContext _context;
 
@@ -15,7 +15,7 @@ namespace OData_Chap04.Controllers
             _context = context;
         }
 
-        [EnableQuery] // 🔹 Cho phép OData query: $filter, $top, $orderby, $count…
+        [EnableQuery]
         [HttpGet]
         public IActionResult Get()
         {

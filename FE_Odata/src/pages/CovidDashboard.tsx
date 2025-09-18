@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { ResponsiveContainer, Treemap } from "recharts";
-import "./CovidDashboard.css"; // import css thuần
+import "./CovidDashboard.css";
+import axios from "axios";
 
-// type cho country data
 interface CountryData {
   country: string;
   value: number;
@@ -10,7 +10,7 @@ interface CountryData {
   color: string;
 }
 
-interface TreemapNode {
+interface TreeMapNode {
   name: string;
   value: number;
   percentage: number;
@@ -20,58 +20,101 @@ interface TreemapNode {
 const CovidDashboard = () => {
   const [activeTab, setActiveTab] = useState("Confirmed");
   const [worldData, setWorldData] = useState<CountryData[]>([]);
-  const [treemapData, setTreemapData] = useState<TreemapNode[]>([]);
+  const [treemapData, setTreemapData] = useState<TreeMapNode[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Mock data - replace with actual OData calls
-  const mockWorldData = {
-    Confirmed: [
-      { country: "US", value: 52280854, percentage: 19, color: "#1e40af" },
-      { country: "India", value: 34793333, percentage: 12, color: "#dc2626" },
-      { country: "Brazil", value: 22243266, percentage: 8, color: "#059669" },
-      { country: "UK", value: 11958928, percentage: 4, color: "#7c3aed" },
-      { country: "Russia", value: 10213265, percentage: 4, color: "#ea580c" },
-      { country: "France", value: 9220540, percentage: 3, color: "#ec4899" },
-      { country: "Turkey", value: 9309094, percentage: 3, color: "#06b6d4" },
-      { country: "Germany", value: 7009648, percentage: 3, color: "#65a30d" },
-    ],
-  };
-
-  const mockTreemapData: TreemapNode[] = [
-    { name: "US", value: 52280854, percentage: 19, fill: "#3b82f6" },
-    { name: "India", value: 34793333, percentage: 12, fill: "#ef4444" },
-    { name: "Brazil", value: 22243266, percentage: 8, fill: "#10b981" },
-    { name: "United Kingdom", value: 11958928, percentage: 4, fill: "#8b5cf6" },
-    { name: "Russia", value: 10213265, percentage: 4, fill: "#f97316" },
-    { name: "France", value: 9220540, percentage: 3, fill: "#f472b6" },
-    { name: "Turkey", value: 9309094, percentage: 3, fill: "#22d3ee" },
-    { name: "Germany", value: 7009648, percentage: 3, fill: "#84cc16" },
+  const colors = [
+    "#3b82f6",
+    "#ef4444",
+    "#10b981",
+    "#8b5cf6",
+    "#f97316",
+    "#f472b6",
+    "#22d3ee",
+    "#84cc16",
   ];
 
-  // Simulate OData API call
-  const fetchODataData = async (endpoint: string, filter = "") => {
+  // Fetch OData
+  const fetchODataData = async () => {
     try {
       setLoading(true);
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      return {
-        worldData: mockWorldData,
-        treemapData: mockTreemapData,
+
+      // Map tab -> API endpoint
+      const apiMap: Record<string, string> = {
+        Confirmed: "Confirms",
+        Active: "Recovereds", // nếu bạn có bảng Active riêng thì chỉnh lại
+        Recovered: "Recovereds",
+        Deaths: "Deaths",
+        "Daily Increase": "DailyReports",
       };
+
+      const endpoint = apiMap[activeTab] || "Confirms";
+      const res = await axios.get(`http://localhost:5230/odata/${endpoint}`);
+      const json = res.data;
+
+      const grouped: Record<
+        string,
+        { country: string; value: number; date?: Date }
+      > = {};
+
+      json.value.forEach((item: any) => {
+        const country = item.CountryRegion;
+        let value = 0;
+
+        if (activeTab === "Daily Increase") {
+          // Dùng cột Confirmed trong DailyReports
+          value = item.Confirmed ?? 0;
+        } else {
+          value = item.Value ?? 0;
+        }
+
+        const date = item.Date ? new Date(item.Date) : null;
+
+        if (
+          !grouped[country] ||
+          (date &&
+            grouped[country].date &&
+            grouped[country].date < date)
+        ) {
+          grouped[country] = { country, value, date: date ?? undefined };
+        }
+      });
+
+      const arr = Object.values(grouped).map((d, i) => ({
+        country: d.country,
+        value: d.value,
+        percentage: 0,
+        color: colors[i % colors.length],
+      }));
+
+      const total = arr.reduce((sum, d) => sum + d.value, 0);
+      arr.forEach(
+        (d) =>
+          (d.percentage = ((d.value / total) * 100).toFixed(1) as any)
+      );
+
+      arr.sort((a, b) => b.value - a.value);
+
+      const tmap = arr.map((d) => ({
+        name: d.country,
+        value: d.value,
+        percentage: d.percentage,
+        fill: d.color,
+      }));
+
+      setWorldData(arr);
+      setTreemapData(tmap);
     } catch (error) {
       console.error("Error fetching OData:", error);
-      return { worldData: {}, treemapData: [] };
+      setWorldData([]);
+      setTreemapData([]);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    const loadData = async () => {
-      const filter = `$filter=category eq '${activeTab}'&$top=50&$orderby=cases desc`;
-      const data = await fetchODataData("/api/covid-data", filter);
-      setWorldData(data.worldData[activeTab] || []);
-      setTreemapData(data.treemapData);
-      setLoading(false);
-    };
-    loadData();
+    fetchODataData();
   }, [activeTab]);
 
   const tabs = ["Confirmed", "Active", "Recovered", "Deaths", "Daily Increase"];
@@ -93,7 +136,7 @@ const CovidDashboard = () => {
           width={width}
           height={height}
           fill={fill}
-          strokeWidth={2}
+          stroke="#fff"
         />
         {width > 100 && height > 60 && (
           <>
@@ -162,7 +205,6 @@ const CovidDashboard = () => {
               <Treemap
                 data={treemapData}
                 dataKey="value"
-                stroke="#fff"
                 strokeWidth={2}
                 content={<CustomTreemapContent />}
               />
@@ -180,7 +222,10 @@ const CovidDashboard = () => {
               <p className="value">{formatNumber(c.value)}</p>
               <p className="percentage">{c.percentage}% of total</p>
             </div>
-            <div className="circle" style={{ backgroundColor: c.color }}></div>
+            <div
+              className="circle"
+              style={{ backgroundColor: c.color }}
+            ></div>
           </div>
         ))}
       </div>
