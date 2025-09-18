@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import MapChart, { type RecordAgg } from "./MapChart";
+import "./CovidMapTabs.css";
 
 type DataType = "confirmed" | "deaths" | "recovered" | "daily_reports";
 
@@ -18,27 +19,32 @@ const CovidMapTabs: React.FC = () => {
     const fetchAllData = async () => {
       try {
         setLoading(true);
-        const lastDateRes = await axios.get(
+        const lastDateResConfirms = await axios.get(
           "http://localhost:5230/odata/Confirms?$apply=aggregate(Date with max as LastDate)"
         );
-        const lastDate = lastDateRes.data?.[0]?.LastDate;
-        if (!lastDate) throw new Error("Không lấy được LastDate");
+        const lastDateResDeaths = await axios.get(
+          "http://localhost:5230/odata/Deaths?$apply=aggregate(Date with max as LastDate)"
+        );
+        const lastDateResRecovereds = await axios.get(
+          "http://localhost:5230/odata/Recovereds?$apply=aggregate(Date with max as LastDate)"
+        );
+
+        const lastDateConfirms = lastDateResConfirms.data?.[0]?.LastDate;
+        const lastDateDeaths = lastDateResDeaths.data?.[0]?.LastDate;
+        const lastDateRecovereds = lastDateResRecovereds.data?.[0]?.LastDate;
 
         const endpoints: Record<DataType, string> = {
-          confirmed: `http://localhost:5230/odata/Confirms?$apply=filter(Date eq ${lastDate})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`,
-          deaths: `http://localhost:5230/odata/Deaths?$apply=filter(Date eq ${lastDate})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`,
-          recovered: `http://localhost:5230/odata/Recovereds?$apply=filter(Date eq ${lastDate})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`,
+          confirmed: `http://localhost:5230/odata/Confirms?$apply=filter(Date eq ${lastDateConfirms})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`,
+          deaths: `http://localhost:5230/odata/Deaths?$apply=filter(Date eq ${lastDateDeaths})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`,
+          recovered: `http://localhost:5230/odata/Recovereds?$apply=filter(Date eq ${lastDateRecovereds})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`,
           daily_reports: "",
         };
 
-        // gọi API
         const results = await Promise.all(
           Object.entries(endpoints).map(async ([key, url]) => {
             if (!url) return [key, []] as [string, RecordAgg[]];
             const res = await axios.get(url);
-
             const data: RecordAgg[] = Array.isArray(res.data) ? res.data : [];
-
             return [key, data] as [string, RecordAgg[]];
           })
         );
@@ -46,10 +52,9 @@ const CovidMapTabs: React.FC = () => {
         const confirmed = results.find(([k]) => k === "confirmed")?.[1] || [];
         const deaths = results.find(([k]) => k === "deaths")?.[1] || [];
 
-        // tính Active = Confirmed - Deaths
+        // Active = Confirmed - Deaths
         const active: RecordAgg[] = confirmed.map((c) => {
           const d = deaths.find((x) => x.CountryRegion === c.CountryRegion);
-
           const confirmedVal = c.LastValue ?? 0;
           const deathsVal = d?.LastValue ?? 0;
 
@@ -75,8 +80,9 @@ const CovidMapTabs: React.FC = () => {
 
   if (loading)
     return (
-      <div className="flex items-center justify-center h-64 text-blue-600 font-semibold animate-pulse">
-        Loading data...
+      <div className="loading-container">
+        <div className="spinner"></div>
+        <span>Đang tải dữ liệu...</span>
       </div>
     );
 
@@ -117,35 +123,26 @@ const CovidMapTabs: React.FC = () => {
   };
 
   return (
-    <>
-      {/* Header */}
-      <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">
-        🌍 COVID-19 Global Overview
-      </h2>
+    <div className="covid-container">
+      <h2 className="covid-header">🌍 COVID-19 Global Overview</h2>
 
-      {/* Tabs */}
-      <div className="flex justify-center flex-wrap gap-3 mb-6">
-        {(Object.keys(tabConfig) as DataType[]).map((t) => (
-          <button
-            key={t}
-            className={`flex items-center gap-2 px-5 py-2 rounded-full font-medium transition-all ${
-              type === t
-                ? "bg-blue-600 text-white shadow-md scale-105"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-            onClick={() => setType(t)}
-          >
-            <span>{tabConfig[t].emoji}</span>
-            {tabConfig[t].label}
-          </button>
-        ))}
+      <div className="tab-wrapper">
+        <nav className="tab-list">
+          {(Object.keys(tabConfig) as DataType[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setType(t)}
+              className={`tab-item ${type === t ? "active" : ""}`}
+            >
+              <span className="emoji">{tabConfig[t].emoji}</span>
+              {tabConfig[t].label}
+            </button>
+          ))}
+        </nav>
       </div>
 
-      {/* Map */}
-      <div className="rounded-xl overflow-hidden border border-gray-200 shadow-lg bg-white">
-        {renderMap()}
-      </div>
-    </>
+      <div className="map-wrapper">{renderMap()}</div>
+    </div>
   );
 };
 

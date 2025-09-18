@@ -1,0 +1,23 @@
+.mapchart-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+}
+
+.mapchart-title {
+  font-size: 1.5rem; /* to hơn */
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: #1f2937; /* xám đậm */
+}
+
+.mapchart-plot {
+  width: 100%;
+  max-width: 1000px; /* giới hạn max để không quá rộng */
+  height: 600px; /* cao hơn cho nhìn rõ */
+  margin: 0 auto;
+  border-radius: 12px;
+  overflow: hidden;
+}
