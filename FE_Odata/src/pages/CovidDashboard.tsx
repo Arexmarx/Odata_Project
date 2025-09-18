@@ -39,63 +39,49 @@ const CovidDashboard = () => {
     try {
       setLoading(true);
 
-      // Map tab -> API endpoint
       const apiMap: Record<string, string> = {
         Confirmed: "Confirms",
-        Active: "Recovereds", // nếu bạn có bảng Active riêng thì chỉnh lại
+        Active: "Recovereds",
         Recovered: "Recovereds",
         Deaths: "Deaths",
         "Daily Increase": "DailyReports",
       };
 
       const endpoint = apiMap[activeTab] || "Confirms";
-      const res = await axios.get(`http://localhost:5230/odata/${endpoint}`);
+
+      let url = "";
+
+      if (activeTab === "Daily Increase") {
+        url = `http://localhost:5230/odata/DailyReports?$apply=filter(Date eq max(Date))/groupby((CountryRegion), aggregate(Confirmed with sum as LastConfirmed))`;
+      } else {
+        url = `http://localhost:5230/odata/${endpoint}?$apply=groupby((CountryRegion),aggregate(Date with max as LastDate,Value with max as LastValue))`;
+      }
+
+      const res = await axios.get(url);
       const json = res.data;
+      console.log("Raw OData Response:", json); // 👈 debug response
 
-      const grouped: Record<
-        string,
-        { country: string; value: number; date?: Date }
-      > = {};
-
-      json.value.forEach((item: any) => {
-        const country = item.CountryRegion;
-        let value = 0;
-
-        if (activeTab === "Daily Increase") {
-          // Dùng cột Confirmed trong DailyReports
-          value = item.Confirmed ?? 0;
-        } else {
-          value = item.Value ?? 0;
-        }
-
-        const date = item.Date ? new Date(item.Date) : null;
-
-        if (
-          !grouped[country] ||
-          (date &&
-            grouped[country].date &&
-            grouped[country].date < date)
-        ) {
-          grouped[country] = { country, value, date: date ?? undefined };
-        }
-      });
-
-      const arr = Object.values(grouped).map((d, i) => ({
-        country: d.country,
-        value: d.value,
-        percentage: 0,
-        color: colors[i % colors.length],
-      }));
-
-      const total = arr.reduce((sum, d) => sum + d.value, 0);
-      arr.forEach(
-        (d) =>
-          (d.percentage = ((d.value / total) * 100).toFixed(1) as any)
+      const arr: CountryData[] = (json.value ?? []).map(
+        (item: any, i: number) => ({
+          country: item.CountryRegion ?? "Unknown",
+          value:
+            activeTab === "Daily Increase"
+              ? item.LastConfirmed ?? 0
+              : item.LastValue ?? 0,
+          percentage: 0,
+          color: colors[i % colors.length],
+        })
       );
+
+      const total = arr.reduce((sum, d) => sum + (d.value || 0), 0);
+
+      arr.forEach((d) => {
+        d.percentage = total > 0 ? +((d.value / total) * 100).toFixed(1) : 0;
+      });
 
       arr.sort((a, b) => b.value - a.value);
 
-      const tmap = arr.map((d) => ({
+      const tmap: TreeMapNode[] = arr.map((d) => ({
         name: d.country,
         value: d.value,
         percentage: d.percentage,
@@ -119,9 +105,10 @@ const CovidDashboard = () => {
 
   const tabs = ["Confirmed", "Active", "Recovered", "Deaths", "Daily Increase"];
 
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
-    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+  const formatNumber = (num?: number | null) => {
+    if (num == null || isNaN(num as number)) return "0";
+    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + "M";
+    if (num >= 1_000) return (num / 1_000).toFixed(1) + "K";
     return num.toString();
   };
 
@@ -222,10 +209,7 @@ const CovidDashboard = () => {
               <p className="value">{formatNumber(c.value)}</p>
               <p className="percentage">{c.percentage}% of total</p>
             </div>
-            <div
-              className="circle"
-              style={{ backgroundColor: c.color }}
-            ></div>
+            <div className="circle" style={{ backgroundColor: c.color }}></div>
           </div>
         ))}
       </div>
