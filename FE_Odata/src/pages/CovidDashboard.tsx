@@ -45,19 +45,30 @@ const CovidDashboard = () => {
       setLoading(true);
 
       let arr: CountryData[] = [];
+      const lastDateRes = await axios.get(
+        "http://localhost:5230/odata/Confirms?$apply=aggregate(Date with max as LastDate)"
+      );
+      const lastDate = lastDateRes.data?.[0]?.LastDate;
+      if (!lastDate) throw new Error("Không lấy được LastDate");
 
       if (activeTab === "Active") {
         // Tính Active = Confirmed - Deaths
         const [confirmedRes, deathsRes] = await Promise.all([
-          axios.get(`http://localhost:5230/odata/Confirms?$apply=groupby((CountryRegion),aggregate(Date with max as LastDate,Value with max as LastValue))`),
-          axios.get(`http://localhost:5230/odata/Deaths?$apply=groupby((CountryRegion),aggregate(Date with max as LastDate,Value with max as LastValue))`)
+          axios.get(
+            `http://localhost:5230/odata/Confirms?$apply=filter(Date eq ${lastDate})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`
+          ),
+          axios.get(
+            `http://localhost:5230/odata/Deaths?$apply=filter(Date eq ${lastDate})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`
+          ),
         ]);
 
         const confirmedData = confirmedRes.data.value || confirmedRes.data;
         const deathsData = deathsRes.data.value || deathsRes.data;
 
         arr = confirmedData.map((item: any, i: number) => {
-          const deathsItem = deathsData.find((d: any) => d.CountryRegion === item.CountryRegion);
+          const deathsItem = deathsData.find(
+            (d: any) => d.CountryRegion === item.CountryRegion
+          );
 
           const confirmedVal = item.LastValue || 0;
           const deathsVal = deathsItem?.LastValue || 0;
@@ -85,7 +96,8 @@ const CovidDashboard = () => {
         if (activeTab === "Daily Increase") {
           url = `http://localhost:5230/odata/DailyReports?$apply=filter(Date eq max(Date))/groupby((CountryRegion), aggregate(Confirmed with sum as LastConfirmed))`;
         } else {
-          url = `http://localhost:5230/odata/${endpoint}?$apply=groupby((CountryRegion),aggregate(Date with max as LastDate,Value with max as LastValue))`;
+          // url = `http://localhost:5230/odata/${endpoint}?$apply=groupby((CountryRegion),aggregate(Date with max as LastDate,Value with max as LastValue))`;
+          url = `http://localhost:5230/odata/${endpoint}?$apply=filter(Date eq ${lastDate})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`;
         }
 
         const res = await axios.get(url);
