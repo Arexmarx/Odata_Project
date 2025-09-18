@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 import CovidDashboard from "./pages/CovidDashboard";
-import CovidMap from "./pages/CovidMap";
+import CovidMapTabs from "./pages/CovidMapTabs";
 
 function App() {
   return (
@@ -21,7 +21,7 @@ function App() {
         {/* Định tuyến */}
         <Routes>
           <Route path="/dashboard" element={<CovidDashboard />} />
-          <Route path="/map" element={<CovidMap />} />
+          <Route path="/map" element={<CovidMapTabs />} />
         </Routes>
       </div>
     </Router>
