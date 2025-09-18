@@ -44,37 +44,64 @@ const CovidDashboard = () => {
     try {
       setLoading(true);
 
-      const apiMap: Record<string, string> = {
-        Confirmed: "Confirms",
-        Active: "Actives",
-        Recovered: "Recovereds",
-        Deaths: "Deaths",
-        "Daily Increase": "DailyReports",
-      };
+      let arr: CountryData[] = [];
 
-      const endpoint = apiMap[activeTab] || "Confirms";
+      if (activeTab === "Active") {
+        // Tính Active = Confirmed - Deaths
+        const [confirmedRes, deathsRes] = await Promise.all([
+          axios.get(`http://localhost:5230/odata/Confirms?$apply=groupby((CountryRegion),aggregate(Date with max as LastDate,Value with max as LastValue))`),
+          axios.get(`http://localhost:5230/odata/Deaths?$apply=groupby((CountryRegion),aggregate(Date with max as LastDate,Value with max as LastValue))`)
+        ]);
 
-      let url = "";
+        const confirmedData = confirmedRes.data.value || confirmedRes.data;
+        const deathsData = deathsRes.data.value || deathsRes.data;
 
-      if (activeTab === "Daily Increase") {
-        url = `http://localhost:5230/odata/DailyReports?$apply=filter(Date eq max(Date))/groupby((CountryRegion), aggregate(Confirmed with sum as LastConfirmed))`;
+        arr = confirmedData.map((item: any, i: number) => {
+          const deathsItem = deathsData.find((d: any) => d.CountryRegion === item.CountryRegion);
+
+          const confirmedVal = item.LastValue || 0;
+          const deathsVal = deathsItem?.LastValue || 0;
+          const activeVal = confirmedVal - deathsVal;
+
+          return {
+            country: item.CountryRegion || "Unknown",
+            value: activeVal,
+            percentage: 0,
+            color: colors[i % colors.length],
+          };
+        });
       } else {
-        url = `http://localhost:5230/odata/${endpoint}?$apply=groupby((CountryRegion),aggregate(Date with max as LastDate,Value with max as LastValue))`;
+        const apiMap: Record<string, string> = {
+          Confirmed: "Confirms",
+          Recovered: "Recovereds",
+          Deaths: "Deaths",
+          "Daily Increase": "DailyReports",
+        };
+
+        const endpoint = apiMap[activeTab] || "Confirms";
+
+        let url = "";
+
+        if (activeTab === "Daily Increase") {
+          url = `http://localhost:5230/odata/DailyReports?$apply=filter(Date eq max(Date))/groupby((CountryRegion), aggregate(Confirmed with sum as LastConfirmed))`;
+        } else {
+          url = `http://localhost:5230/odata/${endpoint}?$apply=groupby((CountryRegion),aggregate(Date with max as LastDate,Value with max as LastValue))`;
+        }
+
+        const res = await axios.get(url);
+        const json = res.data;
+        const rawData = json.value || json;
+
+        arr = rawData.map((item: any, i: number) => ({
+          country: item.CountryRegion || "Unknown",
+          value:
+            activeTab === "Daily Increase"
+              ? item.LastConfirmed || 0
+              : item.LastValue || 0,
+          percentage: 0,
+          color: colors[i % colors.length],
+        }));
       }
-
-      const res = await axios.get(url);
-      const json = res.data;
-      const rawData = json.value || json;
-
-      const arr: CountryData[] = rawData.map((item: any, i: number) => ({
-        country: item.CountryRegion || "Unknown",
-        value:
-          activeTab === "Daily Increase"
-            ? item.LastConfirmed || 0
-            : item.LastValue || 0,
-        percentage: 0,
-        color: colors[i % colors.length],
-      }));
 
       // Lọc bỏ value <= 0
       const filteredArr = arr.filter((item) => item.value > 0);
@@ -263,9 +290,8 @@ const CovidDashboard = () => {
           ) : treemapData ? (
             <ResponsiveContainer width="100%" height="100%">
               <Treemap
-                data={treemapData.children}
+                data={treemapData.children as any}
                 dataKey="value"
-                strokeWidth={1}
                 content={<CustomTreemapContent />}
               />
             </ResponsiveContainer>
