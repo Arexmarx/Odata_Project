@@ -1,0 +1,119 @@
+.deaths-report-container {
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin: 20px 0;
+}
+
+.deaths-report-title {
+  color: #333;
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.deaths-report-stats {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.stat-value {
+  font-size: 16px;
+  color: #333;
+  font-weight: 700;
+}
+
+.deaths-report-plot {
+  width: 100%;
+  height: 500px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e9ecef;
+}
+
+.loading, .error, .no-data {
+  text-align: center;
+  padding: 40px;
+  font-size: 16px;
+  color: #666;
+}
+
+.error {
+  color: #dc3545;
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 8px;
+}
+
+.loading {
+  color: #0d6efd;
+  background: #cff4fc;
+  border: 1px solid #9eeaf9;
+  border-radius: 8px;
+}
+
+.no-data {
+  color: #856404;
+  background: #fff3cd;
+  border: 1px solid #ffecb5;
+  border-radius: 8px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .deaths-report-container {
+    padding: 15px;
+    margin: 10px 0;
+  }
+  
+  .deaths-report-title {
+    font-size: 20px;
+  }
+  
+  .deaths-report-stats {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .deaths-report-plot {
+    height: 400px;
+  }
+}
+
+@media (max-width: 480px) {
+  .deaths-report-container {
+    padding: 10px;
+  }
+  
+  .deaths-report-title {
+    font-size: 18px;
+  }
+  
+  .deaths-report-plot {
+    height: 350px;
+  }
+}
