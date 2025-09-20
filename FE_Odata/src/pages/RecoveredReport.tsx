@@ -2,6 +2,16 @@ import React, { useState, useEffect } from "react";
 import Plot from "react-plotly.js";
 import "./RecoveredReport.css";
 
+export interface ConfirmedData {
+  Date: string;
+  TotalConfirmed: number;
+}
+
+export interface DeathsData {
+  Date: string;
+  TotalDeaths: number;
+}
+
 export interface RecoveredData {
   Date: string;
   TotalRecovered: number;
@@ -14,11 +24,13 @@ export interface DailyRecoveredData {
 }
 
 interface RecoveredReportProps {
-  apiUrl?: string;
+  confirmedApiUrl?: string;
+  deathsApiUrl?: string;
 }
 
 const RecoveredReport: React.FC<RecoveredReportProps> = ({ 
-  apiUrl = "http://localhost:5230/odata/Recovereds?$apply=groupby((Date),%20aggregate(Value%20with%20sum%20as%20TotalRecovered))&$orderby=Date%20asc" 
+  confirmedApiUrl = "http://localhost:5230/odata/Confirms?$apply=groupby((Date),%20aggregate(Value%20with%20sum%20as%20TotalConfirmed))&$orderby=Date%20asc",
+  deathsApiUrl = "http://localhost:5230/odata/Deaths?$apply=groupby((Date),%20aggregate(Value%20with%20sum%20as%20TotalDeaths))&$orderby=Date%20asc"
 }) => {
   const [data, setData] = useState<DailyRecoveredData[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -30,29 +42,50 @@ const RecoveredReport: React.FC<RecoveredReportProps> = ({
         setLoading(true);
         setError(null);
         
-        const response = await fetch(apiUrl);
-        if (!response.ok) {
-            console.log("Fetch error:", response);
-          throw new Error(`HTTP error! status: ${response.status}`);
+        // Fetch both Confirmed and Deaths data
+        const [confirmedResponse, deathsResponse] = await Promise.all([
+          fetch(confirmedApiUrl),
+          fetch(deathsApiUrl)
+        ]);
+        
+        if (!confirmedResponse.ok) {
+          throw new Error(`Confirmed API error! status: ${confirmedResponse.status}`);
+        }
+        if (!deathsResponse.ok) {
+          throw new Error(`Deaths API error! status: ${deathsResponse.status}`);
         }
         
-        const result = await response.json();
+        const confirmedResult = await confirmedResponse.json();
+        const deathsResult = await deathsResponse.json();
         
         // Handle OData response format
-        const totalRecoveredData: RecoveredData[] = result.value || result;
+        const confirmedData: ConfirmedData[] = confirmedResult.value || confirmedResult;
+        const deathsData: DeathsData[] = deathsResult.value || deathsResult;
         
-        if (Array.isArray(totalRecoveredData)) {
-          console.log("Total recovered data:", totalRecoveredData.slice(0, 5)); // Debug first 5 items
+        if (Array.isArray(confirmedData) && Array.isArray(deathsData)) {
+          console.log("Confirmed data:", confirmedData.slice(0, 5)); // Debug first 5 items
+          console.log("Deaths data:", deathsData.slice(0, 5)); // Debug first 5 items
+          
+          // Calculate recovered: Recovered = Confirmed - Deaths (by date)
+          const recoveredByDate: RecoveredData[] = confirmedData.map((confirmedItem) => {
+            const deathsItem = deathsData.find(d => d.Date === confirmedItem.Date);
+            const totalRecovered = confirmedItem.TotalConfirmed - (deathsItem?.TotalDeaths || 0);
+            
+            return {
+              Date: confirmedItem.Date,
+              TotalRecovered: Math.max(0, totalRecovered) // Ensure non-negative
+            };
+          });
           
           // Calculate daily recovered: DailyRecovered(date) = TotalRecovered(date) - TotalRecovered(date-1)
-          const dailyRecoveredData: DailyRecoveredData[] = totalRecoveredData.map((item, index) => {
+          const dailyRecoveredData: DailyRecoveredData[] = recoveredByDate.map((item, index) => {
             const dailyRecovered = index === 0 
               ? item.TotalRecovered // First day: daily = total
-              : item.TotalRecovered - totalRecoveredData[index - 1].TotalRecovered;
+              : item.TotalRecovered - recoveredByDate[index - 1].TotalRecovered;
             
             // Log negative values for debugging
             if (dailyRecovered < 0) {
-              console.warn(`Negative daily value at ${item.Date}: ${dailyRecovered} (current: ${item.TotalRecovered}, previous: ${totalRecoveredData[index - 1].TotalRecovered})`);
+              console.warn(`Negative daily value at ${item.Date}: ${dailyRecovered} (current: ${item.TotalRecovered}, previous: ${recoveredByDate[index - 1].TotalRecovered})`);
             }
             
             return {
@@ -76,7 +109,7 @@ const RecoveredReport: React.FC<RecoveredReportProps> = ({
     };
 
     fetchData();
-  }, [apiUrl]);
+  }, [confirmedApiUrl, deathsApiUrl]);
 
   if (loading) {
     return (
@@ -114,21 +147,6 @@ const RecoveredReport: React.FC<RecoveredReportProps> = ({
   return (
     <div className="recovered-report-container">
       <h2 className="recovered-report-title">Global COVID-19 Daily Recovered Cases Report</h2>
-      
-      {/* Debug Panel */}
-      <div style={{ 
-        background: "#f0f0f0", 
-        padding: "10px", 
-        margin: "10px 0", 
-        borderRadius: "4px",
-        fontSize: "12px",
-        fontFamily: "monospace"
-      }}>
-        <strong>Debug Info:</strong><br/>
-        API URL: {apiUrl}<br/>
-        Data length: {data.length}<br/>
-        Sample data: {data.length > 0 ? JSON.stringify(data.slice(0, 2), null, 2) : "No data"}
-      </div>
 
       <div className="recovered-report-stats">
         <div className="stat-item">
