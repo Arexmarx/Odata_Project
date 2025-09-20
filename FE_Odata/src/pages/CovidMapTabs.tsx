@@ -3,12 +3,7 @@ import axios from "axios";
 import MapChart, { type RecordAgg } from "./MapChart";
 import "./CovidMapTabs.css";
 
-type DataType =
-  | "confirmed"
-  | "deaths"
-  | "recovered"
-  | "active"
-  | "daily_reports";
+type DataType = "confirmed" | "deaths" | "recovered" | "active";
 
 const CovidMapTabs: React.FC = () => {
   const [type, setType] = useState<DataType>("confirmed");
@@ -25,26 +20,23 @@ const CovidMapTabs: React.FC = () => {
     const fetchAllData = async () => {
       try {
         setLoading(true);
+
+        // 🔹 Lấy ngày cuối cùng từ Confirm & Deaths
         const lastDateResConfirms = await axios.get(
           "http://localhost:5230/odata/Confirms?$apply=aggregate(Date with max as LastDate)"
         );
         const lastDateResDeaths = await axios.get(
           "http://localhost:5230/odata/Deaths?$apply=aggregate(Date with max as LastDate)"
         );
-        const lastDateResRecovereds = await axios.get(
-          "http://localhost:5230/odata/Recovereds?$apply=aggregate(Date with max as LastDate)"
-        );
 
         const lastDateConfirms = lastDateResConfirms.data?.[0]?.LastDate;
         const lastDateDeaths = lastDateResDeaths.data?.[0]?.LastDate;
-        const lastDateRecovereds = lastDateResRecovereds.data?.[0]?.LastDate;
 
         const endpoints: Record<DataType, string> = {
           confirmed: `http://localhost:5230/odata/Confirms?$apply=filter(Date eq ${lastDateConfirms})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`,
           deaths: `http://localhost:5230/odata/Deaths?$apply=filter(Date eq ${lastDateDeaths})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`,
-          recovered: `http://localhost:5230/odata/Recovereds?$apply=filter(Date eq ${lastDateRecovereds})/groupby((CountryRegion, Date),aggregate(Value with sum as LastValue))`,
-          active: "", // sẽ tính tay
-          daily_reports: "",
+          recovered: "",
+          active: "",
         };
 
         const results = await Promise.all(
@@ -73,7 +65,21 @@ const CovidMapTabs: React.FC = () => {
           };
         });
 
+        // ✅ Recovered = Confirmed - Deaths
+        const recovered: RecordAgg[] = confirmed.map((c) => {
+          const d = deaths.find((x) => x.CountryRegion === c.CountryRegion);
+          const confirmedVal = c.LastValue ?? 0;
+          const deathsVal = d?.LastValue ?? 0;
+          const recoveredVal = confirmedVal - deathsVal;
+          return {
+            CountryRegion: c.CountryRegion,
+            LastDate: c.LastDate,
+            LastValue: recoveredVal < 0 ? 0 : recoveredVal, // tránh số âm
+          };
+        });
+
         results.push(["active", active]);
+        results.push(["recovered", recovered]);
 
         setAllData(Object.fromEntries(results));
         setLoading(false);
@@ -136,7 +142,6 @@ const CovidMapTabs: React.FC = () => {
     deaths: { label: "Deaths", emoji: "⚰️" },
     recovered: { label: "Recovered", emoji: "💚" },
     active: { label: "Active", emoji: "🔵" },
-    daily_reports: { label: "Daily Reports", emoji: "📊" },
   };
 
   return (

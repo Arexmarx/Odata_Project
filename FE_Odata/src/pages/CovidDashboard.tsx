@@ -51,7 +51,7 @@ const CovidDashboard = () => {
       const lastDate = lastDateRes.data?.[0]?.LastDate;
       if (!lastDate) throw new Error("Không lấy được LastDate");
 
-      if (activeTab === "Active") {
+      if (activeTab === "Active" || activeTab === "Recovered") {
         // Tính Active = Confirmed - Deaths
         const [confirmedRes, deathsRes] = await Promise.all([
           axios.get(
@@ -84,7 +84,6 @@ const CovidDashboard = () => {
       } else {
         const apiMap: Record<string, string> = {
           Confirmed: "Confirms",
-          Recovered: "Recovereds",
           Deaths: "Deaths",
           "Daily Increase": "DailyReports",
         };
@@ -154,7 +153,7 @@ const CovidDashboard = () => {
     fetchODataData();
   }, [activeTab]);
 
-  const tabs = ["Confirmed", "Active", "Recovered", "Deaths", "Daily Increase"];
+  const tabs = ["Confirmed", "Active", "Recovered", "Deaths"];
 
   const formatNumber = (num?: number | null) => {
     if (num == null || isNaN(num as number)) return "0";
